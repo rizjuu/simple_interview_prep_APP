@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "872677583437",
+    "project_id": "interviewprep-app-49a15",
+    "storage_bucket": "interviewprep-app-49a15.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872677583437:android:ff472158f2cac2c89d0a04",
+        "android_client_info": {
+          "package_name": "Kupal.Company_"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWPHCClkE1HHpKegR0aX2wiIlMMHoC2M8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
