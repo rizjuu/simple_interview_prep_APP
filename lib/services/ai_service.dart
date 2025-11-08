@@ -10,11 +10,27 @@ class AIService {
   /// ==============================
   /// 🧠 Generate Interview Questions
   /// ==============================
-  Future<List<String>> generateInterviewQuestions({required String niche}) async {
+  Future<List<String>> generateInterviewQuestions({
+    required String mode,
+    required String niche,
+  }) async {
     try {
-      final prompt = '''
-Generate 5 realistic and challenging interview questions for a "$niche" interview.
-Make them sound like real interviewer questions.
+      String modeInstruction;
+      switch (mode) {
+        case 'Rapid Fire':
+          modeInstruction =
+              'Generate 5 short-answer questions designed for quick, 1-minute responses.';
+          break;
+        case 'Deep Dive':
+          modeInstruction =
+              'Generate 5 in-depth, multi-part questions that require detailed, analytical answers.';
+          break;
+        default: // Mock Interview
+          modeInstruction =
+              'Generate 5 realistic and challenging interview questions.';
+      }
+      final prompt =
+          '''$modeInstruction for a "$niche" interview. Make them sound like they are from a real interviewer.
 Return ONLY a numbered plain list (no commentary, no JSON, no explanation). Example:
 
 1. Tell me about yourself.
@@ -27,36 +43,67 @@ Return ONLY a numbered plain list (no commentary, no JSON, no explanation). Exam
       final response = await model.generateContent([Content.text(prompt)]);
       final text = response.text ?? '';
 
-      // Split into lines and clean
-      final questions = text
+      // Split into lines, clean, and ensure we have exactly 5 questions
+      var questions = text
           .split('\n')
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty)
-          .map((line) => line.replaceAll(RegExp(r'^\d+[\).]?\s*'), '')) // Remove numbers like "1. "
+          .map(
+            (line) => line.replaceAll(RegExp(r'^\d+[\).]?\s*'), ''),
+          ) // Remove numbers like "1. "
           .toList();
 
-      // Fallback in case the AI returns less than 3 questions
-      if (questions.length < 3) {
-        questions.addAll([
-          'Why are you interested in this role?',
-          'Describe a challenge you faced and how you overcame it.',
-          'Where do you see yourself in five years?',
-        ]);
+      // If we have more than 5, take the first 5.
+      if (questions.length > 5) {
+        questions = questions.sublist(0, 5);
+      }
+      // If we have fewer than 5, add from the fallback list.
+      else if (questions.length < 5) {
+        final fallback = _getFallbackQuestions();
+        final needed = 5 - questions.length;
+        questions.addAll(fallback.take(needed));
       }
 
       return questions;
     } catch (e) {
-      return [
-        'Tell me about yourself.',
-        'Describe a time you overcame a challenge.',
-        'Why do you want this position?'
-      ];
+      // On error, return a fixed list of 5 fallback questions.
+      return _getFallbackQuestions();
     }
   }
-///feeback
-  Future<String> getInterviewFeedback({
+
+  /// ==============================
+  /// 🧠 Generate Follow-up Question
+  /// ==============================
+  Future<String> getFollowUpQuestion({
     required String niche,
-    required List<Map<String, String>> qna, // [{'question': '', 'answer': ''}, ...]
+    required String question,
+    required String answer,
+  }) async {
+    try {
+      final prompt =
+          '''
+You are an interviewer for a "$niche" position.
+The original question was: "$question"
+The user's answer was: "$answer"
+
+Based on this, generate a single, concise, and relevant follow-up question.
+Return ONLY the question text (no commentary, no numbering, no explanation).
+''';
+
+      final response = await model.generateContent([Content.text(prompt)]);
+      final text = response.text?.trim() ?? '';
+
+      return text.isEmpty ? 'Can you elaborate on that?' : text;
+    } catch (e) {
+      return 'Interesting. Can you give me an example?';
+    }
+  }
+
+  ///feeback
+  Future<Map<String, dynamic>> getInterviewFeedback({
+    required String niche,
+    required List<Map<String, String>>
+    qna, // [{'question': '', 'answer': ''}, ...]
   }) async {
     try {
       // Build a compact but explicit prompt that requests ONLY the JSON object.
@@ -64,29 +111,32 @@ Return ONLY a numbered plain list (no commentary, no JSON, no explanation). Exam
           .map((e) => '- Q: ${e['question']}\n  A: ${e['answer']}')
           .join('\n');
 
-      final prompt = '''
+      final prompt =
+          '''
 IMPORTANT: Return ONLY a valid JSON object exactly like the example below (no extra commentary, no code fences, no explanation). Use correct JSON quoting and commas.
 
 Example:
 {
-  "niche": "banking",
-  "overall_feedback": "Good clarity but improve specifics in answers.",
-  "question_feedback": [
-    {
-      "question": "Tell me about yourself",
-      "user_answer": "...user text...",
-      "feedback": "Focus on one storyline and quantify achievements."
-    }
+  "overall_score": 8.5,
+  "overall_summary": "A solid performance. You were articulate and professional, but you could strengthen your answers by providing more specific, quantifiable examples.",
+  "answer_feedback": [
+    { "question": "Tell me about yourself.", "answer_score": 7, "feedback": "Good start, but could be more structured and tied to the role." },
+    { "question": "Why this company?", "answer_score": 9, "feedback": "Excellent, well-researched answer that showed genuine interest." }
   ],
+  "feedback_categories": {
+    "Communication 🗣️": "Your verbal communication was clear and well-paced. You answered questions directly.",
+    "Content Accuracy 📚": "Your understanding of the core topics is good, but you missed some nuances in the question about X.",
+    "Confidence 💪": "You appeared confident and maintained good eye contact, which is excellent.",
+    "Professionalism 👔": "Your tone and language were professional throughout the entire interview."
+  },
   "suggested_improvements": [
     "Add specific numbers to achievements",
     "Practice STAR format for behavioral answers"
-  ],
-  "suggested_score": "B+"
+  ]
 }
 
 Now evaluate the interview for the niche: "$niche".
-Provide constructive, actionable, concise feedback for each question listed below.
+Provide a score from 1-10 for each answer, an overall score, and constructive, actionable, concise feedback.
 Return ONLY the JSON object.
 
 Interview (questions and user answers):
@@ -96,7 +146,7 @@ $questionsPart
       final response = await model.generateContent([Content.text(prompt)]);
       final raw = response.text ?? '';
 
-      if (raw.isEmpty) return 'No feedback generated.';
+      if (raw.isEmpty) return {'error': 'No feedback generated.'};
 
       try {
         // Basic cleanup: smart quotes, code fences, stray text
@@ -112,46 +162,24 @@ $questionsPart
           cleanJson = cleanJson.substring(start, end);
         }
 
-        final parsed = json.decode(cleanJson);
-
-        // Extract components
-        final overall = parsed['overall_feedback']?.toString() ?? '(none)';
-        final suggested = (parsed['suggested_improvements'] as List?)?.cast<String>() ?? [];
-        final score = parsed['suggested_score']?.toString() ?? 'N/A';
-        final qFeedbackRaw = (parsed['question_feedback'] as List?) ?? [];
-
-        // Build readable summary for display
-        final buffer = StringBuffer();
-        buffer.writeln('Niche: ${parsed['niche'] ?? niche}\n');
-        buffer.writeln('Suggested score: $score\n');
-        buffer.writeln('Overall feedback:\n$overall\n');
-        buffer.writeln('\nPer-question feedback:');
-        if (qFeedbackRaw.isEmpty) {
-          buffer.writeln('  (none)');
-        } else {
-          for (var item in qFeedbackRaw) {
-            final q = item['question']?.toString() ?? '';
-            final a = item['user_answer']?.toString() ?? '';
-            final f = item['feedback']?.toString() ?? '';
-            buffer.writeln('\n• Question: $q');
-            buffer.writeln('  Your answer: $a');
-            buffer.writeln('  Feedback: $f');
-          }
-        }
-
-        buffer.writeln('\nSuggested improvements:');
-        if (suggested.isEmpty) {
-          buffer.writeln('  (none)');
-        } else {
-          for (var s in suggested) buffer.writeln('  • $s');
-        }
-
-        return buffer.toString();
+        // Return the parsed JSON object directly.
+        return json.decode(cleanJson) as Map<String, dynamic>;
       } catch (e) {
-        return 'Could not parse JSON. Raw output:\n\n$raw';
+        return {'error': 'Could not parse feedback. Raw output:\n\n$raw'};
       }
     } catch (e) {
-      return 'Error generating feedback: $e';
+      return {'error': 'Error generating feedback: $e'};
     }
   }
+
+  /// ==============================
+  /// 📦 Fallback Questions
+  /// ==============================
+  List<String> _getFallbackQuestions() => [
+    'Tell me about yourself.',
+    'What are your biggest strengths?',
+    'What are your biggest weaknesses?',
+    'Why are you interested in this role?',
+    'Describe a challenge you faced and how you overcame it.',
+  ];
 }
