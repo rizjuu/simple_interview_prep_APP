@@ -22,7 +22,7 @@ class GlowButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.blueAccent.withOpacity(0.6),
+            color: Colors.blueAccent.withAlpha(100),
             blurRadius: 12,
             spreadRadius: 1,
           ),
@@ -33,15 +33,19 @@ class GlowButton extends StatelessWidget {
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           minimumSize: const Size(double.infinity, 50),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
         ),
         onPressed: isLoading ? null : onPressed,
         child: isLoading
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
               )
             : Text(
                 label,

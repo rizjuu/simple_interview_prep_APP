@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 import '../services/ai_service.dart';
 import '../services/pdf_service.dart';
 import '../widgets/gradient_background.dart';
-import '../widgets/glow_button.dart';
 import '../widgets/loading_view.dart';
 import '../widgets/interview_controls.dart';
 import '../widgets/interview_content.dart';
@@ -46,6 +46,7 @@ class _InterviewPageState extends State<InterviewPage> {
 
   Timer? _timer;
   int _remainingTime = 60;
+  String _lastRecognizedWords = '';
 
   @override
   void initState() {
@@ -61,16 +62,19 @@ class _InterviewPageState extends State<InterviewPage> {
         mode: _selectedMode,
         niche: _selectedNiche,
       );
+      if (!mounted) return;
       setState(() {
         _questionsByNiche[_selectedNiche] = generated;
       });
     } catch (e) {
       debugPrint("Error loading AI questions: $e");
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load AI questions.')),
       );
     } finally {
-      setState(() => _isGenerating = false);
+      if (mounted) setState(() => _isGenerating = false);
     }
   }
 
@@ -150,6 +154,7 @@ class _InterviewPageState extends State<InterviewPage> {
 
     if (!mounted) return;
 
+    // ignore: use_build_context_synchronously
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -281,7 +286,7 @@ class _InterviewPageState extends State<InterviewPage> {
                 children: [Text(f, style: const TextStyle(height: 1.4))],
               ),
             );
-          }).toList(),
+          }),
           const SizedBox(height: 20),
         ],
 
@@ -311,7 +316,7 @@ class _InterviewPageState extends State<InterviewPage> {
               ],
             ),
           );
-        }).toList(),
+        }),
         const SizedBox(height: 20),
 
         // Suggested Improvements
@@ -337,7 +342,7 @@ class _InterviewPageState extends State<InterviewPage> {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ],
     );
@@ -346,6 +351,34 @@ class _InterviewPageState extends State<InterviewPage> {
   /// 🎤 Voice recognition logic
   Future<void> _toggleListening() async {
     if (!_isListening) {
+      // Request microphone permission first
+      final status = await Permission.microphone.request();
+
+      if (status.isDenied) {
+        debugPrint('Microphone permission denied');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission denied')),
+          );
+        }
+        return;
+      } else if (status.isPermanentlyDenied) {
+        debugPrint(
+          'Microphone permission permanently denied, open app settings',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Microphone permission permanently denied. Please enable it in settings.',
+              ),
+            ),
+          );
+        }
+        openAppSettings();
+        return;
+      }
+
       bool available = await _speech.initialize(
         onStatus: (status) {
           if (status == 'done') setState(() => _isListening = false);
@@ -355,15 +388,39 @@ class _InterviewPageState extends State<InterviewPage> {
 
       if (available) {
         setState(() => _isListening = true);
+        _lastRecognizedWords = '';
         _speech.listen(
           onResult: (result) {
             setState(() {
-              _answerController.text = result.recognizedWords;
+              // Show real-time partial results
+              String currentWords = result.recognizedWords;
+
+              if (result.finalResult) {
+                // On final result, append to the answer field
+                if (_answerController.text.isEmpty) {
+                  _answerController.text = currentWords;
+                } else {
+                  _answerController.text =
+                      '${_answerController.text} $currentWords';
+                }
+                _lastRecognizedWords = '';
+              } else {
+                // On partial result, just show preview without committing
+                _lastRecognizedWords = currentWords;
+              }
             });
           },
+          listenOptions: stt.SpeechListenOptions(
+            listenMode: stt.ListenMode.dictation,
+          ),
         );
       } else {
-        debugPrint('Microphone permission denied');
+        debugPrint('Speech to text not available');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Speech recognition not available')),
+          );
+        }
       }
     } else {
       setState(() => _isListening = false);

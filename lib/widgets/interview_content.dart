@@ -49,12 +49,10 @@ class InterviewContent extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.95),
+            color: Colors.white.withAlpha(100),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: isLast
-              ? _buildCompletionView()
-              : _buildQuestionView(),
+          child: isLast ? _buildCompletionView() : _buildQuestionView(),
         ),
       ],
     );
@@ -118,10 +116,7 @@ class InterviewContent extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Text(
-          currentQuestion ?? '',
-          style: const TextStyle(fontSize: 16),
-        ),
+        Text(currentQuestion ?? '', style: const TextStyle(fontSize: 16)),
         const SizedBox(height: 12),
         _buildAnswerInput(),
         const SizedBox(height: 12),
@@ -150,9 +145,7 @@ class InterviewContent extends StatelessWidget {
           maxLines: 5,
           decoration: InputDecoration(
             hintText: 'Speak or type your answer here...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         Padding(
