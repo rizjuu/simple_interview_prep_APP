@@ -1,5 +1,5 @@
 name: interview_prep
-description: "InterviewPrep — AI interview practice and feedback"
+description: "E commerce"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -22,6 +22,9 @@ dependencies:
   printing: ^5.11.1
   google_fonts: ^6.3.2
   permission_handler: ^12.0.1
+  provider: ^6.1.5+1
+  shared_preferences: ^2.0.15
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +37,18 @@ flutter:
   assets:
     - assets/ai_intro.json
     - assets/aiai.json
+    - assets/laptopp.png
+    - assets/phone.png
+    - assets/mouse.png
+    - assets/keyboard.png
+    - assets/monitor.png
+    - assets/webcam.png
+    - assets/tshirt.png
+    - assets/hoodie.png
+    - assets/shoes.png
+    - assets/racket.png
+    - assets/football.png
+    - assets/yogamat.png
+    - assets/smartwatch.png
+    - assets/headphones.png
+

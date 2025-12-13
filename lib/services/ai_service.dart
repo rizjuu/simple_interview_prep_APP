@@ -1,185 +1,126 @@
-import 'dart:convert';
 import 'package:firebase_ai/firebase_ai.dart';
+import 'package:interview_prep/widgets/product_model.dart';
 
+/// A service class to interact with the Gemini AI for e-commerce features.
 class AIService {
   // Create a Gemini model via Firebase Vertex AI
   final model = FirebaseAI.googleAI().generativeModel(
-    model: 'gemini-2.5-flash-lite',
+    // Consider using a more powerful model for better recommendations
+    model: 'gemini-1.5-flash-latest',
   );
 
   /// ==============================
-  /// 🧠 Generate Interview Questions
-  /// ==============================
-  Future<List<String>> generateInterviewQuestions({
-    required String mode,
-    required String niche,
+  /// 🧠 AI Product Recommender
+  /// ====================================
+  Future<List<String>> getAIProductRecommendations({
+    required List<String> pastInteractions,
   }) async {
     try {
-      String modeInstruction;
-      switch (mode) {
-        case 'Rapid Fire':
-          modeInstruction =
-              'Generate 5 short-answer questions designed for quick, 1-minute responses.';
-          break;
-        case 'Deep Dive':
-          modeInstruction =
-              'Generate 5 in-depth, multi-part questions that require detailed, analytical answers.';
-          break;
-        default: // Mock Interview
-          modeInstruction =
-              'Generate 5 realistic and challenging interview questions.';
-      }
+      final interactionHistory = pastInteractions.join(', ');
       final prompt =
-          '''$modeInstruction for a "$niche" interview. Make them sound like they are from a real interviewer.
-Return ONLY a numbered plain list (no commentary, no JSON, no explanation). Example:
+          '''
+You are an expert e-commerce AI product recommender.
+Based on the user's recent activity, suggest 5 products they might like.
+The user has recently viewed or purchased: "$interactionHistory".
 
-1. Tell me about yourself.
-2. Describe a situation where you showed leadership.
-3. What are your strengths and weaknesses?
-4. Why do you want to work in this field?
-5. How do you handle stress or pressure?
+Return ONLY a numbered plain list of product names (no commentary, no JSON, no explanation).
 ''';
 
       final response = await model.generateContent([Content.text(prompt)]);
       final text = response.text ?? '';
 
-      // Split into lines, clean, and ensure we have exactly 5 questions
-      var questions = text
+      if (text.isEmpty) return _getFallbackRecommendations();
+
+      // Split into lines, clean, and remove numbering.
+      var recommendations = text
           .split('\n')
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty)
-          .map(
-            (line) => line.replaceAll(RegExp(r'^\d+[\).]?\s*'), ''),
-          ) // Remove numbers like "1. "
+          .map((line) => line.replaceAll(RegExp(r'^\d+[\).]?\s*'), ''))
           .toList();
 
-      // If we have more than 5, take the first 5.
-      if (questions.length > 5) {
-        questions = questions.sublist(0, 5);
-      }
-      // If we have fewer than 5, add from the fallback list.
-      else if (questions.length < 5) {
-        final fallback = _getFallbackQuestions();
-        final needed = 5 - questions.length;
-        questions.addAll(fallback.take(needed));
-      }
-
-      return questions;
+      return recommendations.isNotEmpty
+          ? recommendations
+          : _getFallbackRecommendations();
     } catch (e) {
-      // On error, return a fixed list of 5 fallback questions.
-      return _getFallbackQuestions();
+      // On error, return a fixed list of fallback recommendations.
+      return _getFallbackRecommendations();
     }
   }
 
   /// ==============================
-  /// 🧠 Generate Follow-up Question
+  /// 📦 Fallback Recommendations
   /// ==============================
-  Future<String> getFollowUpQuestion({
-    required String niche,
-    required String question,
-    required String answer,
+  List<String> _getFallbackRecommendations() => [
+    'Wireless Headphones',
+    'Smart Watch',
+    'Portable Charger',
+    'Yoga Mat',
+    'Coffee Maker',
+  ];
+
+  /// ==============================
+  /// ⭐ AI Product Analyzer by Star Rating
+  /// ====================================
+  Future<List<String>> analyzeProductsByRating({
+    required List<Product> products,
   }) async {
     try {
-      final prompt =
-          '''
-You are an interviewer for a "$niche" position.
-The original question was: "$question"
-The user's answer was: "$answer"
+      // Sort products by rating in descending order
+      final sortedByRating = List<Product>.from(products)
+        ..sort((a, b) => b.rating.compareTo(a.rating));
 
-Based on this, generate a single, concise, and relevant follow-up question.
-Return ONLY the question text (no commentary, no numbering, no explanation).
-''';
+      // Get top-rated products
+      final topRatedProducts = sortedByRating.take(5).toList();
 
-      final response = await model.generateContent([Content.text(prompt)]);
-      final text = response.text?.trim() ?? '';
-
-      return text.isEmpty ? 'Can you elaborate on that?' : text;
-    } catch (e) {
-      return 'Interesting. Can you give me an example?';
-    }
-  }
-
-  ///feeback
-  Future<Map<String, dynamic>> getInterviewFeedback({
-    required String niche,
-    required List<Map<String, String>>
-    qna, // [{'question': '', 'answer': ''}, ...]
-  }) async {
-    try {
-      // Build a compact but explicit prompt that requests ONLY the JSON object.
-      final questionsPart = qna
-          .map((e) => '- Q: ${e['question']}\n  A: ${e['answer']}')
+      // Create detailed product information for the AI
+      final productDetails = topRatedProducts
+          .map((p) => '${p.name} (Rating: ${p.rating}/5, Price: \$${p.price})')
           .join('\n');
 
       final prompt =
           '''
-IMPORTANT: Return ONLY a valid JSON object exactly like the example below (no extra commentary, no code fences, no explanation). Use correct JSON quoting and commas.
+You are an expert e-commerce product analyzer.
 
-Example:
-{
-  "overall_score": 8.5,
-  "overall_summary": "A solid performance. You were articulate and professional, but you could strengthen your answers by providing more specific, quantifiable examples.",
-  "answer_feedback": [
-    { "question": "Tell me about yourself.", "answer_score": 7, "feedback": "Good start, but could be more structured and tied to the role." },
-    { "question": "Why this company?", "answer_score": 9, "feedback": "Excellent, well-researched answer that showed genuine interest." }
-  ],
-  "feedback_categories": {
-    "Communication 🗣️": "Your verbal communication was clear and well-paced. You answered questions directly.",
-    "Content Accuracy 📚": "Your understanding of the core topics is good, but you missed some nuances in the question about X.",
-    "Confidence 💪": "You appeared confident and maintained good eye contact, which is excellent.",
-    "Professionalism 👔": "Your tone and language were professional throughout the entire interview."
-  },
-  "suggested_improvements": [
-    "Add specific numbers to achievements",
-    "Practice STAR format for behavioral answers"
-  ]
-}
+Based on star ratings and customer feedback, here are the top-rated products:
 
-Now evaluate the interview for the niche: "$niche".
-Provide a score from 1-10 for each answer, an overall score, and constructive, actionable, concise feedback.
-Return ONLY the JSON object.
+$productDetails
 
-Interview (questions and user answers):
-$questionsPart
+Analyze these highly-rated products and recommend them in order of their rating and quality. 
+Return ONLY a numbered list of product names with their ratings (no commentary, no JSON).
+
+Format: "1. Product Name (Rating: X.X/5)"
 ''';
 
       final response = await model.generateContent([Content.text(prompt)]);
-      final raw = response.text ?? '';
+      final text = response.text ?? '';
 
-      if (raw.isEmpty) return {'error': 'No feedback generated.'};
+      if (text.isEmpty) return _getFallbackRatedRecommendations();
 
-      try {
-        // Basic cleanup: smart quotes, code fences, stray text
-        var cleanJson = raw
-            .replaceAll(RegExp(r'[\u201C\u201D]'), '"')
-            .replaceAll(RegExp(r'```json\s*|\s*```'), '')
-            .trim();
+      // Parse the response into product recommendations
+      var recommendations = text
+          .split('\n')
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
 
-        // Extract JSON block
-        final start = cleanJson.indexOf('{');
-        final end = cleanJson.lastIndexOf('}') + 1;
-        if (start >= 0 && end > start) {
-          cleanJson = cleanJson.substring(start, end);
-        }
-
-        // Return the parsed JSON object directly.
-        return json.decode(cleanJson) as Map<String, dynamic>;
-      } catch (e) {
-        return {'error': 'Could not parse feedback. Raw output:\n\n$raw'};
-      }
+      return recommendations.isNotEmpty
+          ? recommendations
+          : _getFallbackRatedRecommendations();
     } catch (e) {
-      return {'error': 'Error generating feedback: $e'};
+      // On error, return recommendations based on local rating analysis
+      return _getFallbackRatedRecommendations();
     }
   }
 
   /// ==============================
-  /// 📦 Fallback Questions
+  /// 🌟 Fallback Rated Recommendations
   /// ==============================
-  List<String> _getFallbackQuestions() => [
-    'Tell me about yourself.',
-    'What are your biggest strengths?',
-    'What are your biggest weaknesses?',
-    'Why are you interested in this role?',
-    'Describe a challenge you faced and how you overcame it.',
+  List<String> _getFallbackRatedRecommendations() => [
+    '1. Wireless Headphones (Rating: 4.9/5) - Best overall choice',
+    '2. 4K Monitor (Rating: 4.9/5) - Top display quality',
+    '3. Laptop Pro (Rating: 4.8/5) - Premium performance',
+    '4. Yoga Mat (Rating: 4.8/5) - Most reliable fitness product',
+    '5. Smartphone X (Rating: 4.7/5) - Excellent mobile device',
   ];
 }

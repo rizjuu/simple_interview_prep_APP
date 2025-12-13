@@ -1,175 +1,117 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
-import 'interview_page.dart'; // renamed from essay_page.dart
-import 'essay_page.dart';
+import 'package:interview_prep/screens/cart_page.dart';
+import 'package:interview_prep/screens/product_grid_page.dart';
+import 'package:interview_prep/widgets/loading_view.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _isLoading = false;
+  bool _isReady = false;
+  int _selectedIndex = 0;
+
+  static const List<Widget> _widgetOptions = <Widget>[
+    ProductGridPage(),
+    CartPage(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF4facfe), Color(0xFF00f2fe)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    if (_isReady) {
+      return Scaffold(
+        body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart),
+              label: 'Cart',
             ),
-          ),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight:
-                    MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).padding.top -
-                    MediaQuery.of(context).padding.bottom,
+          ],
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: _isLoading
+          ? const LoadingView(message: 'Getting things ready...')
+          : Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0F0F1A), Color(0xFF1A1A2E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
               child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 40,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // AI animation
-                      Lottie.asset(
-                        'assets/ai_intro.json',
-                        width: 220,
-                        height: 220,
-                        repeat: true,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'E Commerce Shop',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00F5D4),
+                        letterSpacing: 2,
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        "Welcome to InterviewPrep AI",
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Buying Things with Ai Recommendations',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFFE2E2E2),
+                        letterSpacing: 1,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 60),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() => _isLoading = true);
+                        Future.delayed(const Duration(seconds: 2), () {
+                          if (mounted) {
+                            setState(() => _isReady = true);
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 50,
+                          vertical: 16,
+                        ),
+                        backgroundColor: const Color(0xFF6C63FF),
+                        elevation: 12,
+                        shadowColor: const Color(0xFF6C63FF).withOpacity(0.6),
+                      ),
+                      child: const Text(
+                        'Enter Shop',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
+                          letterSpacing: 1,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "Your AI-powered interview practice assistant",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 30),
-
-                      ElevatedButton.icon(
-                        icon: const Icon(
-                          Icons.arrow_forward,
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          "Start Interview",
-                          style: TextStyle(fontSize: 18, color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 40,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          elevation: 6,
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (_, __, ___) =>
-                                  const InterviewPage(),
-                              transitionsBuilder:
-                                  (
-                                    context,
-                                    animation,
-                                    secondaryAnimation,
-                                    child,
-                                  ) {
-                                    final tween =
-                                        Tween(
-                                          begin: const Offset(0, 1),
-                                          end: Offset.zero,
-                                        ).chain(
-                                          CurveTween(
-                                            curve: Curves.easeOutCubic,
-                                          ),
-                                        );
-                                    return SlideTransition(
-                                      position: animation.drive(tween),
-                                      child: child,
-                                    );
-                                  },
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.edit, color: Colors.white),
-                        label: const Text(
-                          "Essay Feedback",
-                          style: TextStyle(fontSize: 18, color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purpleAccent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 40,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          elevation: 6,
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (_, __, ___) => const EssayPage(),
-                              transitionsBuilder:
-                                  (
-                                    context,
-                                    animation,
-                                    secondaryAnimation,
-                                    child,
-                                  ) {
-                                    final tween =
-                                        Tween(
-                                          begin: const Offset(0, 1),
-                                          end: Offset.zero,
-                                        ).chain(
-                                          CurveTween(
-                                            curve: Curves.easeOutCubic,
-                                          ),
-                                        );
-                                    return SlideTransition(
-                                      position: animation.drive(tween),
-                                      child: child,
-                                    );
-                                  },
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
